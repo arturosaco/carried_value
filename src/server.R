@@ -70,7 +70,7 @@ library(data.table)
 library(magrittr)
 library(ggplot2)
 library(shiny)
-
+library(wesanderson)
 
 cap.table <- function(input){
     n.shares.dummy <- 100000
@@ -106,15 +106,28 @@ cap.table <- function(input){
 
 plot.cap.table <- function(funding.history.dt){
     setnames(funding.history.dt, c("profit", "investment_h"), c("Return", "Cost"))
-    funding.history.dt[, list(round_id, scenario, Return, Cost)] %>% 
-        melt(id.vars = c("round_id", "scenario")) %>%
-        data.frame %>%
+
+    funding.history.dt[, list(round_id, scenario, multiple, Return, Cost)] %>% 
+        melt(id.vars = c("round_id", "scenario", "multiple")) %>%
+        data.frame ->
+    data.m
+    
+    data.m$variable <- factor(data.m$variable, c("Return", "Cost"))
+    data.m <- data.m[order(data.m$variable, decreasing = TRUE), ]
+    
+    data.m %>%
         ggplot(aes(x = round_id,
             y = value, fill = variable)) +
         facet_wrap(~scenario, nrow = 1) + 
         geom_bar(stat = "identity", position = "stack") + 
         ylab("Carried Value") + 
-        xlab("Round")
+        xlab("Round") + theme_bw() +
+        scale_fill_manual(values = wes_palette("Royal1")) +
+        geom_text(data = data.m[data.m$variable == "Return", ], 
+            aes(x = round_id, 
+                label = paste("Multiple:", round(multiple, 1), "\n Return: $", round(value, 1), "m") , 
+                y = value))
+
 
     # funding.history.dt %>% ggplot(aes(x = round_id, y = multiple)) + 
     #     geom_line() + geom_point()
@@ -150,7 +163,7 @@ function(input, output) {
         cost <- sum(cap$investment_h)
         paste0(
             "Ownership: ", round(100 * ownership, 1), "%", "\n",
-            "Carried Value: $", carried.value, "\n",
+            "Carried Value: $", round(carried.value, 1), "m \n",
             "Cost: $", cost
         )
     })
@@ -162,7 +175,7 @@ function(input, output) {
         cost <- sum(cap$investment_h)
         paste0(
             "Ownership: ", round(100 * ownership, 1), "%", "\n",
-            "Carried Value: $", carried.value, "\n",
+            "Carried Value: $", round(carried.value, 1), "m \n",
             "Cost: $", cost
         )
     })
@@ -179,3 +192,14 @@ function(input, output) {
 
 
 
+# COPY shiny-server.sh /usr/bin/shiny-server.sh
+
+# RUN mkdir /srv/shiny-server
+# RUN wget -P /srv/shiny-server https://raw.githubusercontent.com/arturosaco/carried_value/master/src/server.R
+# RUN wget -P /srv/shiny-server https://raw.githubusercontent.com/arturosaco/carried_value/master/src/ui.R
+
+# CMD ["/usr/bin/shiny-server.sh"]
+
+
+
+# RUN wget -O /etc/shiny-server/shiny-server.conf https://raw.githubusercontent.com/arturosaco/carried_value/master/src/shiny-server.conf
